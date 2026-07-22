@@ -1,18 +1,17 @@
 package Temporalite;
 
 public class Compteur{
-    public int i;
-    Compteur(int n)
+    public int c;
+    public Compteur(int n)
     {
-        i=n;
+        c=n;
     }
     public void ajouter(int a)
     {
-        i=i+a;
+        c=c+a;
     }
     public void enlever(int a)
     {
-        i=i-a;
+        c=c-a;
     }
-
 }

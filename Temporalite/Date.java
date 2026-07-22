@@ -1,12 +1,13 @@
 package Temporalite;
 import java.util.ArrayList;
 
-public class Date
+public class Date implements Comparable<Date>
 {
     String type;
-    int taille; // Combien d'element definit une date jour heure les 2 ect..
-    public ArrayList<Compteur> tabdate; // peut contenir jour, mois annee et meme plus meme heure
-    Date(int t)
+    int taille;
+    public ArrayList<Compteur> tabdate;
+
+    public Date(int t)
     {
         taille=t;
         tabdate = new ArrayList<>();
@@ -14,11 +15,30 @@ public class Date
             tabdate.add(new Compteur(0));
         }
     }
-    public void ajoutunevaleur(int position,int valeur)
+    public void changervaleur(int position,int valeur)
     {
-        if (valeur<taille)
+        if (position<taille)
         {
-            tabdate[position].i=valeur;
+            tabdate.get(position).c=valeur;
         }
+    }
+    public void changerdate(Date valeur)
+    {
+        if (valeur.taille==taille)
+        {   for (int i=0;i<taille;i++)
+        {
+            changervaleur(i,valeur.tabdate.get(i).c);
+        }
+        }
+    }
+
+    @Override
+    public int compareTo(Date autre) {
+        int min = Math.min(this.taille, autre.taille);
+        for (int i = 0; i < min; i++) {
+            int diff = this.tabdate.get(i).c - autre.tabdate.get(i).c;
+            if (diff != 0) return diff;
+        }
+        return this.taille - autre.taille;
     }
 }
