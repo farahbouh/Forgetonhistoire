@@ -26,18 +26,20 @@ public class Date implements Comparable<Date>
     {
         if (valeur.taille==taille)
         {   for (int i=0;i<taille;i++)
-        {
-            changervaleur(i,valeur.tabdate.get(i).c);
-        }
+            {
+                changervaleur(i,valeur.tabdate.get(i).c);
+            }
         }
     }
 
-    @Override
     public int compareTo(Date autre) {
         int min = Math.min(this.taille, autre.taille);
         for (int i = 0; i < min; i++) {
             int diff = this.tabdate.get(i).c - autre.tabdate.get(i).c;
-            if (diff != 0) return diff;
+            if (diff != 0)
+            {
+                return diff;
+            }
         }
         return this.taille - autre.taille;
     }

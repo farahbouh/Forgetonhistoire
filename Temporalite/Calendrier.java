@@ -33,11 +33,16 @@ public class Calendrier {
     }
 
     public void ajouterDate(Date d) {
-        grille.add(d);
-        trier();
-    }
-
-    public void trier() {
-        Collections.sort(grille);
+        int i=0;
+        while ( grille.size()<i &&d.compareTo(grille.get(i))< 0 )
+        {
+            if (d.compareTo(grille.get(i)) == 0)
+            {
+                System.out.println("Date existante");
+                return;
+            }
+            i++;
+        } // compare chaque date jusqu'a que l'ecart soit positif
+        grille.add(i,d);
     }
 }
