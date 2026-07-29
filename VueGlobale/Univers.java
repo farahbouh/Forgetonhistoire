@@ -18,4 +18,18 @@ public class Univers {
         this.listeLieux = new ArrayList<>();
         this.listeEvenements = new ArrayList<>();
     }
+
+    public void ajouteType(String type) {
+        this.type=type;
+    }
+
+    public void ajoutepersonnage(Personnage p) {
+        listePersonnages.add(p);
+    }
+    public void ajouteEvenement(Evenement e) {
+        listeEvenements.add(e);
+    }
+    public void ajouteLieux(Lieux l) {
+        listeLieux.add(l);
+    }
 }

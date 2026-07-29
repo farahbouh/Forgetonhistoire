@@ -12,4 +12,14 @@ public class Bibliotheque {
         this.nom = nom;
         this.type = type;
     }
+
+    public void ajoutelivre(Livre l)
+    {
+        livreliste.add(l);
+    }
+    public ArrayList<Livre> filtragepartype(String type)
+    {
+        ArrayList<VueGlobale.Livre> listelivre;
+        return listelivre;
+    }
 }
