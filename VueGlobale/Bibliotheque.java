@@ -11,15 +11,20 @@ public class Bibliotheque {
         this.id = id;
         this.nom = nom;
         this.type = type;
+        this.livreliste = new ArrayList<>();
     }
 
-    public void ajoutelivre(Livre l)
-    {
+    public void ajoutelivre(Livre l) {
         livreliste.add(l);
     }
     public ArrayList<Livre> filtragepartype(String type)
     {
-        ArrayList<VueGlobale.Livre> listelivre;
-        return listelivre;
+        ArrayList<VueGlobale.Livre> livreret = new ArrayList<>();
+        for (int i=0; i<livreliste.size(); i++) {
+            if (type.equals(livreliste.get(i).type)) {
+                livreret.add(livreliste.get(i));
+            }
+        }
+        return livreret;
     }
 }

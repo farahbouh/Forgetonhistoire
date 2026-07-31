@@ -11,5 +11,6 @@ public class Livre {
         this.id = id;
         this.nom = nom;
         this.type = type;
+        this.universliste = new ArrayList<>();
     }
 }

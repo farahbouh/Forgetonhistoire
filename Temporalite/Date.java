@@ -7,6 +7,14 @@ public class Date implements Comparable<Date>
     int taille;
     public ArrayList<Compteur> tabdate;
 
+    public Date(int a,int m, int j)
+    {
+        taille=3;
+        tabdate = new ArrayList<>();
+        tabdate.add(new Compteur(a));
+        tabdate.add(new Compteur(m));
+        tabdate.add(new Compteur(j));
+    }
     public Date(int t)
     {
         taille=t;
