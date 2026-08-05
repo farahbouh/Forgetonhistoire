@@ -5,14 +5,12 @@ import java.util.ArrayList;
 import static java.lang.Math.max;
 
 public class Lien {
-    Object type; //evenement ou personnage ect..
     public ArrayList<Personnage> perstab; //liste des elements lié
     public ArrayList<Lieux> lieuxtab;
     public ArrayList<Evenement> evetab;
 
-    Lien(Object t)
+    Lien()
     {
-        this.type=t;
         this.perstab=new ArrayList<>();
         this.lieuxtab=new ArrayList<>();
         this.evetab=new ArrayList<>();

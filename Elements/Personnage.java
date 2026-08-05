@@ -1,6 +1,6 @@
 package Elements;
 
-import java.sql.Date;
+import Temporalite.Date;
 import java.util.ArrayList;
 
 public class Personnage {
@@ -11,6 +11,7 @@ public class Personnage {
     public Date dateDeces;
     public String description;
     public ArrayList<Lien>liensociaux;
+    public Lien lien;
     //public Qualite qualite; // peut etre utile pour decelemr incoherence 
 
     // Constructeur
@@ -24,9 +25,9 @@ public class Personnage {
     {
         if (dateDeces.compareTo(comp)>=0)
         {
-            return 0;
+            return false;
         }
-        return 1;
+        return true;
     }
     public void naissance(Date n)
     {

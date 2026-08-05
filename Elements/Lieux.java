@@ -9,7 +9,8 @@ public class Lieux {
     public int fondateurId;
     public String type;               // ex: "Ville", "Région", "Quartier"
     public int lieuParentId;
-
+    public Lien lien;
+    
     public Lieux(int id, String nom, String type) {
         this.id = id;
         this.nom = nom;

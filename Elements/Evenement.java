@@ -9,7 +9,7 @@ public class Evenement {
     public Date dateFin;
     public ArrayList<String> types;   // ex: ["Guerre", "Mariage", "Conseil"]
     public String description;
-    public ArrayList<Personnage> participant;
+    public Lien lien;
 
     // Constructeur
     public Evenement(int id, String titre, String description) {
@@ -17,14 +17,12 @@ public class Evenement {
         this.titre = titre;
         this.description = description;
         this.types = new ArrayList<>();
-        this.participant = new ArrayList<>();
     }
     public Evenement(int id) {
         this.id = id;
         this.titre = "titre";
         this.description = "description";
         this.types = new ArrayList<>();
-        this.participant = new ArrayList<>();
     }
 
     public void ajouttypeevenement(String type)
