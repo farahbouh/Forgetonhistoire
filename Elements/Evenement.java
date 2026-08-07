@@ -17,12 +17,14 @@ public class Evenement {
         this.titre = titre;
         this.description = description;
         this.types = new ArrayList<>();
+        this.lien = new Lien();
     }
     public Evenement(int id) {
         this.id = id;
         this.titre = "titre";
         this.description = "description";
         this.types = new ArrayList<>();
+        this.lien = new Lien();
     }
 
     public void ajouttypeevenement(String type)

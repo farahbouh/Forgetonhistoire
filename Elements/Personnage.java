@@ -20,10 +20,14 @@ public class Personnage {
         this.prenom = prenom;
         this.nom = nom;
         this.description = description;
+        this.lien=new Lien();
     }
     public boolean estcequevivant(Date comp) //0 si non 1 si oui
     {
-        if (dateDeces.compareTo(comp)>=0)
+        if (dateDeces == null) {
+            return true; // pas encore de date de deces enregistree
+        }
+        if (dateDeces.compareTo(comp)<=0)
         {
             return false;
         }
@@ -37,9 +41,9 @@ public class Personnage {
     {
         dateDeces=m;
     }
-    public void ajoutlien(Personnage a, Lien l)
+    public void ajoutlien(Object t)
     {
-            // verifier que le lien n'existe pas en double, verifier que le lien est possible 
+           lien.creelien(t);
     }
     public void changerdesc(String desc)
     {

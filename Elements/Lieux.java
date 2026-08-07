@@ -15,5 +15,6 @@ public class Lieux {
         this.id = id;
         this.nom = nom;
         this.type = type;
+        this.lien = new Lien();
     }
 }
