@@ -17,7 +17,8 @@ public class Lieux {
         this.nom = new ArrayList<>();
         this.type = new ArrayList<>() ;
         this.lien = new Lien();
-
+        this.dateDestruction=new ArrayList<>();
+        this.dateConstruction=new ArrayList<>();
         this.nom.add(nom);
         this.type.add(type);
     }
@@ -26,6 +27,8 @@ public class Lieux {
         this.id = id;
         this.nom = new ArrayList<>();
         this.type = new ArrayList<>() ;
+        this.dateDestruction=new ArrayList<>();
+        this.dateConstruction=new ArrayList<>();
         this.lien = new Lien();
     }
     public boolean ajoutelieux(String nom, String type, Date dest, Date cons)
@@ -35,9 +38,17 @@ public class Lieux {
         // abandonne un temps avant qu'un nouveau lieu ne soit construit au meme endroit).
         // La nouvelle periode est inseree dans l'ordre chronologique, apres verification
         // qu'elle ne chevauche aucune periode deja existante.
-        if (dest.compareTo(cons)>=0)
+        if (dest.compareTo(cons)<0)
         {
             return false; // date à l'envers
+        }
+        if (this.nom.size()==0)
+        {
+            this.nom.add(0,nom);
+            this.type.add(0,type);
+            this.dateConstruction.add(0,cons);
+            this.dateDestruction.add(0,dest);
+            return true;
         }
         for (int i=0;i<this.nom.size();i++)
         {

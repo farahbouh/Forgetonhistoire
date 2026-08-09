@@ -131,6 +131,22 @@ public class Main {
         verifier("e1.lien contient p2 (Gandalf)", e1.lien.estdedans(p2));
         verifier("e2.lien contient p1 (Frodon)", e2.lien.estdedans(p1));
 
+        // ========== TESTS LIEUX (periodes / chevauchement) ==========
+        System.out.println("\n=== TESTS LIEUX (periodes) ===\n");
+
+        Lieux lugdunum = new Lieux(500); // vide, sans periode initiale
+        boolean ajout1 = lugdunum.ajoutelieux("Lugdunum", "Ville", new Date(1900, 1, 1), new Date(-43, 1, 1));
+        verifier("ajout d'une 1ere periode sur un lieu vide", ajout1);
+
+        boolean ajout2 = lugdunum.ajoutelieux("Lyon", "Ville", new Date(2025, 1, 1), new Date(1900, 1, 1));
+        verifier("ajout d'une 2e periode qui ne chevauche pas (apres)", ajout2);
+
+        boolean ajoutChevauche = lugdunum.ajoutelieux("Intrus", "Ville", new Date(2000, 1, 1), new Date(1000, 1, 1));
+        verifier("refus d'une periode qui chevauche", !ajoutChevauche);
+
+        boolean ajoutInverse = lugdunum.ajoutelieux("Invalide", "Ville", new Date(1000, 1, 1), new Date(2000, 1, 1));
+        verifier("refus d'une periode a l'envers (dest avant cons)", !ajoutInverse);
+
         // ========== TESTS BIBLIOTHEQUE / LIVRE ==========
         System.out.println("\n=== TESTS BIBLIOTHEQUE ===\n");
 
