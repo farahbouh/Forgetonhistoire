@@ -14,6 +14,7 @@ public class TestServeur {
             public void handle(HttpExchange e) throws java.io.IOException {
                 String reponse = "Bravo, la connexion Java Angular fonctionne !";
                 byte[] bytes = reponse.getBytes(StandardCharsets.UTF_8);
+                e.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
                 e.sendResponseHeaders(200, bytes.length);
                 OutputStream os = e.getResponseBody();
                 os.write(bytes);
