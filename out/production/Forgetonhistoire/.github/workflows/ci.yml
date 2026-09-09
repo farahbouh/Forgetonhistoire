@@ -1,0 +1,26 @@
+name: CI JAVA
+
+# se declenche a chaque push
+on:
+  push:
+
+# ce qu'il faut faire, et sur quel type de machine
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Recuperer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Compiler le projet
+        run: javac Elements/*.java Temporalite/*.java VueGlobale/*.java Main.java
+
+      - name: Lancer les tests
+        run: java Main
