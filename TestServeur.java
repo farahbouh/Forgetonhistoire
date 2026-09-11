@@ -10,9 +10,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
+import java.util.ArrayList;
 
 import VueGlobale.Bibliotheque;
 import VueGlobale.Livre;
+import VueGlobale.Univers;
+import Elements.Personnage;
 
 public class TestServeur {
 
@@ -23,9 +27,11 @@ public class TestServeur {
 
     public static void main(String[] args) throws Exception {
         chargerBibliothequeDepuisFichier();
+        ajouterDonneesDeTestSiVide();
 
         HttpServer serveur = HttpServer.create(new InetSocketAddress(8080), 0);
 
+        // ============ /test ============
         serveur.createContext("/test", new HttpHandler() {
             @Override
             public void handle(HttpExchange e) throws java.io.IOException {
@@ -39,15 +45,54 @@ public class TestServeur {
             }
         });
 
+        // ============ /api/personnages?livreId=X ============
         serveur.createContext("/api/personnages", new HttpHandler() {
             @Override
             public void handle(HttpExchange e) throws java.io.IOException {
                 e.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
-                String json = "["
-                        + "{\"id\":1,\"nom\":\"Baggins\",\"prenom\":\"Frodon\",\"description\":\"Porteur de l'Anneau\"},"
-                        + "{\"id\":2,\"nom\":\"Le Gris\",\"prenom\":\"Gandalf\",\"description\":\"Magicien Istari\"},"
-                        + "{\"id\":3,\"nom\":\"Skywalker\",\"prenom\":\"Luke\",\"description\":\"Jedi\"}"
-                        + "]";
+
+                String query = e.getRequestURI().getQuery();
+                String livreIdStr = null;
+
+                if (query != null && query.startsWith("livreId=")) {
+                    livreIdStr = query.substring("livreId=".length());
+                }
+
+                if (livreIdStr == null) {
+                    String erreur = "{\"erreur\":\"Parametre livreId manquant\"}";
+                    byte[] bytes = erreur.getBytes(StandardCharsets.UTF_8);
+                    e.sendResponseHeaders(400, bytes.length);
+                    OutputStream os = e.getResponseBody();
+                    os.write(bytes);
+                    os.close();
+                    return;
+                }
+
+                int livreId = Integer.parseInt(livreIdStr);
+                Livre livreTrouve = null;
+                for (Livre l : biblio.livreliste) {
+                    if (l.id == livreId) {
+                        livreTrouve = l;
+                        break;
+                    }
+                }
+
+                if (livreTrouve == null) {
+                    String erreur = "{\"erreur\":\"Livre introuvable\"}";
+                    byte[] bytes = erreur.getBytes(StandardCharsets.UTF_8);
+                    e.sendResponseHeaders(404, bytes.length);
+                    OutputStream os = e.getResponseBody();
+                    os.write(bytes);
+                    os.close();
+                    return;
+                }
+
+                List<Personnage> tousLesPersonnages = new ArrayList<>();
+                for (Univers u : livreTrouve.universliste) {
+                    tousLesPersonnages.addAll(u.listePersonnages);
+                }
+
+                String json = gson.toJson(tousLesPersonnages);
                 byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
                 e.sendResponseHeaders(200, bytes.length);
                 OutputStream os = e.getResponseBody();
@@ -56,7 +101,7 @@ public class TestServeur {
             }
         });
 
-        // Endpoint /api/livres : GET (lister) et POST (creer)
+        // ============ /api/livres ============
         serveur.createContext("/api/livres", new HttpHandler() {
             @Override
             public void handle(HttpExchange e) throws java.io.IOException {
@@ -81,7 +126,6 @@ public class TestServeur {
                     }
                     String corps = buffer.toString(StandardCharsets.UTF_8);
 
-                    // On lit juste les champs recus (nom, type, description) via une classe temporaire
                     LivreEntrant entrant = gson.fromJson(corps, LivreEntrant.class);
                     String nom = entrant.nom != null ? entrant.nom : "Sans nom";
                     String type = entrant.type != null ? entrant.type : "";
@@ -101,7 +145,6 @@ public class TestServeur {
                     return;
                 }
 
-                // GET : renvoyer tous les livres de la bibliotheque
                 String json = gson.toJson(biblio.livreliste);
                 byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
                 e.sendResponseHeaders(200, bytes.length);
@@ -117,11 +160,63 @@ public class TestServeur {
         System.out.println("Appuie sur Ctrl+C pour l'arreter");
     }
 
-    // Petite classe utilisee uniquement pour lire le JSON envoye par Angular (nom/type/description)
     static class LivreEntrant {
         String nom;
         String type;
         String description;
+    }
+
+    static void ajouterDonneesDeTestSiVide() {
+        if (!biblio.livreliste.isEmpty()) {
+            System.out.println("Bibliotheque non vide, pas de donnees de test ajoutees");
+            return;
+        }
+
+        System.out.println("Bibliotheque vide, ajout de donnees de test...");
+
+        // --- Livre 1 : Le Seigneur des Anneaux ---
+        Livre livre1 = new Livre(1, "Le Seigneur des Anneaux", "Fantastique", "Une quete epique");
+        Univers univers1 = new Univers(1, "Terre du Milieu");
+
+        Personnage frodon = new Personnage(1, "Baggins", "Frodon", "Porteur de l'Anneau");
+        Personnage gandalf = new Personnage(2, "Le Gris", "Gandalf", "Magicien Istari");
+
+        univers1.ajoutepersonnage(frodon);
+        univers1.ajoutepersonnage(gandalf);
+        livre1.universliste.add(univers1);
+
+        // --- Livre 2 : Star Wars ---
+        Livre livre2 = new Livre(2, "Star Wars", "Science-Fiction", "Une galaxie lointaine");
+        Univers univers2 = new Univers(2, "Galaxie lointaine");
+
+        Personnage luke = new Personnage(3, "Skywalker", "Luke", "Jedi");
+        Personnage leia = new Personnage(4, "Organa", "Leia", "Princesse rebelle");
+
+        univers2.ajoutepersonnage(luke);
+        univers2.ajoutepersonnage(leia);
+        livre2.universliste.add(univers2);
+
+        // --- Livre 3 : avec DEUX univers (univers parallèles) ---
+        Livre livre3 = new Livre(3, "Chroniques Paralleles", "Fantastique", "Deux mondes en parallele");
+        Univers univers3a = new Univers(3, "Monde Reel");
+        Univers univers3b = new Univers(4, "Monde Miroir");
+
+        Personnage alice = new Personnage(5, "Dupont", "Alice", "Vit dans le monde reel");
+        Personnage aliceMiroir = new Personnage(6, "Dupont", "Alice (miroir)", "Son double dans le monde miroir");
+
+        univers3a.ajoutepersonnage(alice);
+        univers3b.ajoutepersonnage(aliceMiroir);
+        livre3.universliste.add(univers3a);
+        livre3.universliste.add(univers3b);
+
+        biblio.ajoutelivre(livre1);
+        biblio.ajoutelivre(livre2);
+        biblio.ajoutelivre(livre3);
+
+        prochainId = 4;
+
+        sauvegarderBibliothequeDansFichier();
+        System.out.println("3 livres de test ajoutes avec leurs personnages");
     }
 
     static void chargerBibliothequeDepuisFichier() {

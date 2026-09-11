@@ -1,0 +1,16 @@
+# Fichiers compilés Java
+*.class
+
+# Dossier de sortie de l'IDE
+out/
+
+# Fichiers de bibliothèque
+bibliotheque.json
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Système
+.DS_Store
