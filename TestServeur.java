@@ -101,6 +101,31 @@ public class TestServeur {
             }
         });
 
+        // ============ /api/univers?livreId=X ============
+        serveur.createContext("/api/univers", new HttpHandler() {
+            @Override
+            public void handle(HttpExchange e) throws java.io.IOException {
+                String query = e.getRequestURI().getQuery();
+                String livreIdStr = null;
+                if (query != null && query.startsWith("livreId=")) {
+                    livreIdStr = query.substring("livreId=".length());
+                }
+
+                if (livreIdStr == null) {
+                    e.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
+                    String erreur = "{\"erreur\":\"Parametre livreId manquant\"}";
+                    byte[] bytes = erreur.getBytes(StandardCharsets.UTF_8);
+                    e.sendResponseHeaders(400, bytes.length);
+                    OutputStream os = e.getResponseBody();
+                    os.write(bytes);
+                    os.close();
+                    return;
+                }
+
+                gererUnivers(e, Integer.parseInt(livreIdStr));
+            }
+        });
+
         // ============ /api/livres ============
         serveur.createContext("/api/livres", new HttpHandler() {
             @Override
@@ -160,12 +185,96 @@ public class TestServeur {
         System.out.println("Appuie sur Ctrl+C pour l'arreter");
     }
 
+    // ============ Route POST/GET : univers d'un livre ============
+    static void gererUnivers(HttpExchange e, int livreId) throws java.io.IOException {
+        e.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
+        e.getResponseHeaders().add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        e.getResponseHeaders().add("Access-Control-Allow-Headers", "Content-Type");
+
+        String methode = e.getRequestMethod();
+
+        if (methode.equals("OPTIONS")) {
+            e.sendResponseHeaders(204, -1);
+            return;
+        }
+
+        // Trouver le livre
+        Livre livreTrouve = null;
+        for (Livre l : biblio.livreliste) {
+            if (l.id == livreId) {
+                livreTrouve = l;
+                break;
+            }
+        }
+
+        if (livreTrouve == null) {
+            String erreur = "{\"erreur\":\"Livre introuvable\"}";
+            byte[] bytes = erreur.getBytes(StandardCharsets.UTF_8);
+            e.sendResponseHeaders(404, bytes.length);
+            OutputStream os = e.getResponseBody();
+            os.write(bytes);
+            os.close();
+            return;
+        }
+
+        // ===== POST : créer un univers =====
+        if (methode.equals("POST")) {
+            InputStream is = e.getRequestBody();
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            byte[] data = new byte[1024];
+            int lus;
+            while ((lus = is.read(data)) != -1) {
+                buffer.write(data, 0, lus);
+            }
+            String corps = buffer.toString(StandardCharsets.UTF_8);
+
+            UniversEntrant entrant = gson.fromJson(corps, UniversEntrant.class);
+            String nom = entrant.nom != null ? entrant.nom : "Univers sans nom";
+            String type = entrant.type != null ? entrant.type : "";
+
+            int nouvelId = 1;
+            for (Livre l : biblio.livreliste) {
+                for (Univers u : l.universliste) {
+                    if (u.id >= nouvelId) nouvelId = u.id + 1;
+                }
+            }
+
+            Univers nouveau = new Univers(nouvelId, nom);
+            nouveau.type = type;
+            livreTrouve.universliste.add(nouveau);
+            sauvegarderBibliothequeDansFichier();
+
+            String reponse = "{\"statut\":\"ok\",\"id\":" + nouveau.id + "}";
+            byte[] bytes = reponse.getBytes(StandardCharsets.UTF_8);
+            e.sendResponseHeaders(200, bytes.length);
+            OutputStream os = e.getResponseBody();
+            os.write(bytes);
+            os.close();
+            return;
+        }
+
+        // ===== GET : lister les univers =====
+        String json = gson.toJson(livreTrouve.universliste);
+        byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
+        e.sendResponseHeaders(200, bytes.length);
+        OutputStream os = e.getResponseBody();
+        os.write(bytes);
+        os.close();
+    }
+
+    // ============ Classes pour lire le JSON entrant ============
     static class LivreEntrant {
         String nom;
         String type;
         String description;
     }
 
+    static class UniversEntrant {
+        String nom;
+        String type;
+    }
+
+    // ============ Données de test ============
     static void ajouterDonneesDeTestSiVide() {
         if (!biblio.livreliste.isEmpty()) {
             System.out.println("Bibliotheque non vide, pas de donnees de test ajoutees");
@@ -219,6 +328,7 @@ public class TestServeur {
         System.out.println("3 livres de test ajoutes avec leurs personnages");
     }
 
+    // ============ Chargement / sauvegarde ============
     static void chargerBibliothequeDepuisFichier() {
         if (Files.exists(FICHIER_BIBLIOTHEQUE)) {
             try {
