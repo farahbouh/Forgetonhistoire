@@ -17,6 +17,7 @@ import VueGlobale.Bibliotheque;
 import VueGlobale.Livre;
 import VueGlobale.Univers;
 import Elements.Personnage;
+import Temporalite.Date;
 
 public class TestServeur {
 
@@ -78,7 +79,6 @@ public class TestServeur {
 
                 int universId = Integer.parseInt(universIdStr);
 
-                // Trouver l'univers correspondant
                 Univers universTrouve = null;
                 for (Livre l : biblio.livreliste) {
                     for (Univers u : l.universliste) {
@@ -116,7 +116,6 @@ public class TestServeur {
                     String prenom = entrant.prenom != null ? entrant.prenom : "";
                     String description = entrant.description != null ? entrant.description : "";
 
-                    // Calculer un nouvel id de personnage
                     int nouvelId = 1;
                     for (Livre l : biblio.livreliste) {
                         for (Univers u : l.universliste) {
@@ -127,6 +126,12 @@ public class TestServeur {
                     }
 
                     Personnage nouveau = new Personnage(nouvelId, nom, prenom, description);
+
+                    if (entrant.jour != null && entrant.mois != null && entrant.annee != null) {
+                        Date d = new Date(entrant.annee, entrant.mois, entrant.jour);
+                        nouveau.naissance(d);
+                    }
+
                     universTrouve.listePersonnages.add(nouveau);
                     sauvegarderBibliothequeDansFichier();
 
@@ -246,7 +251,6 @@ public class TestServeur {
             return;
         }
 
-        // Trouver le livre
         Livre livreTrouve = null;
         for (Livre l : biblio.livreliste) {
             if (l.id == livreId) {
@@ -265,7 +269,6 @@ public class TestServeur {
             return;
         }
 
-        // ===== POST : créer un univers =====
         if (methode.equals("POST")) {
             InputStream is = e.getRequestBody();
             ByteArrayOutputStream buffer = new ByteArrayOutputStream();
@@ -301,7 +304,6 @@ public class TestServeur {
             return;
         }
 
-        // ===== GET : lister les univers =====
         String json = gson.toJson(livreTrouve.universliste);
         byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
         e.sendResponseHeaders(200, bytes.length);
@@ -326,6 +328,9 @@ public class TestServeur {
         String nom;
         String prenom;
         String description;
+        Integer jour;
+        Integer mois;
+        Integer annee;
     }
 
     // ============ Données de test ============
@@ -337,7 +342,6 @@ public class TestServeur {
 
         System.out.println("Bibliotheque vide, ajout de donnees de test...");
 
-        // --- Livre 1 : Le Seigneur des Anneaux ---
         Livre livre1 = new Livre(1, "Le Seigneur des Anneaux", "Fantastique", "Une quete epique");
         Univers univers1 = new Univers(1, "Terre du Milieu");
 
@@ -348,7 +352,6 @@ public class TestServeur {
         univers1.ajoutepersonnage(gandalf);
         livre1.universliste.add(univers1);
 
-        // --- Livre 2 : Star Wars ---
         Livre livre2 = new Livre(2, "Star Wars", "Science-Fiction", "Une galaxie lointaine");
         Univers univers2 = new Univers(2, "Galaxie lointaine");
 
@@ -359,7 +362,6 @@ public class TestServeur {
         univers2.ajoutepersonnage(leia);
         livre2.universliste.add(univers2);
 
-        // --- Livre 3 : avec DEUX univers (univers parallèles) ---
         Livre livre3 = new Livre(3, "Chroniques Paralleles", "Fantastique", "Deux mondes en parallele");
         Univers univers3a = new Univers(3, "Monde Reel");
         Univers univers3b = new Univers(4, "Monde Miroir");

@@ -7,35 +7,39 @@ public class Date implements Comparable<Date>
     int taille;
     public ArrayList<Compteur> tabdate;
 
-    public Date(int a,int m, int j)
+    public Date(int a, int m, int j)
     {
-        taille=3;
+        taille = 3;
         tabdate = new ArrayList<>();
         tabdate.add(new Compteur(a));
         tabdate.add(new Compteur(m));
         tabdate.add(new Compteur(j));
     }
+
     public Date(int t)
     {
-        taille=t;
+        taille = t;
         tabdate = new ArrayList<>();
         for (int i = 0; i < taille; i++) {
             tabdate.add(new Compteur(0));
         }
     }
-    public void changervaleur(int position,int valeur)
+
+    public void changervaleur(int position, int valeur)
     {
-        if (position<taille)
+        if (position < taille)
         {
-            tabdate.get(position).c=valeur;
+            tabdate.get(position).c = valeur;
         }
     }
+
     public void changerdate(Date valeur)
     {
-        if (valeur.taille==taille)
-        {   for (int i=0;i<taille;i++)
+        if (valeur.taille == taille)
+        {
+            for (int i = 0; i < taille; i++)
             {
-                changervaleur(i,valeur.tabdate.get(i).c);
+                changervaleur(i, valeur.tabdate.get(i).c);
             }
         }
     }
@@ -51,5 +55,4 @@ public class Date implements Comparable<Date>
         }
         return this.taille - autre.taille;
     }
-
 }
