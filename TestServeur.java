@@ -132,6 +132,22 @@ public class TestServeur {
                         nouveau.naissance(d);
                     }
 
+                    if (entrant.jourDeces != null && entrant.moisDeces != null && entrant.anneeDeces != null) {
+                        nouveau.mort(new Date(entrant.anneeDeces, entrant.moisDeces, entrant.jourDeces));
+                    }
+
+                    // verification de coherence (fonction existante)
+                    if (nouveau.dateNaissance != null && nouveau.dateDeces != null
+                            && !nouveau.estcequevivant(nouveau.dateNaissance)) {
+                        String erreur = "{\"erreur\":\"Incoherence : le deces ne peut pas etre avant la naissance\"}";
+                        byte[] bytes = erreur.getBytes(StandardCharsets.UTF_8);
+                        e.sendResponseHeaders(400, bytes.length);
+                        OutputStream os = e.getResponseBody();
+                        os.write(bytes);
+                        os.close();
+                        return;
+                    }
+
                     universTrouve.listePersonnages.add(nouveau);
                     sauvegarderBibliothequeDansFichier();
 
@@ -331,6 +347,9 @@ public class TestServeur {
         Integer jour;
         Integer mois;
         Integer annee;
+        Integer jourDeces;
+        Integer moisDeces;
+        Integer anneeDeces;
     }
 
     // ============ Données de test ============
