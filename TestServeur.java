@@ -10,8 +10,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
-import java.util.ArrayList;
 
 import VueGlobale.Bibliotheque;
 import VueGlobale.Livre;
@@ -21,314 +19,293 @@ import Temporalite.Date;
 
 public class TestServeur {
 
+    // ============ ÉTAT GLOBAL ============
     static final Gson gson = new Gson();
     static final Path FICHIER_BIBLIOTHEQUE = Paths.get("bibliotheque.json");
     static Bibliotheque biblio = new Bibliotheque(1, "Ma Bibliotheque", "Principale");
     static int prochainId = 1;
 
+    // ============ POINT D'ENTRÉE ============
     public static void main(String[] args) throws Exception {
         chargerBibliothequeDepuisFichier();
         ajouterDonneesDeTestSiVide();
 
         HttpServer serveur = HttpServer.create(new InetSocketAddress(8080), 0);
 
-        // ============ /test ============
-        serveur.createContext("/test", new HttpHandler() {
-            @Override
-            public void handle(HttpExchange e) throws java.io.IOException {
-                e.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
-                String reponse = "Bravo, la connexion Java Angular fonctionne !";
-                byte[] bytes = reponse.getBytes(StandardCharsets.UTF_8);
-                e.sendResponseHeaders(200, bytes.length);
-                OutputStream os = e.getResponseBody();
-                os.write(bytes);
-                os.close();
-            }
-        });
-
-        // ============ /api/personnages?universId=X ============
-        serveur.createContext("/api/personnages", new HttpHandler() {
-            @Override
-            public void handle(HttpExchange e) throws java.io.IOException {
-                e.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
-                e.getResponseHeaders().add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-                e.getResponseHeaders().add("Access-Control-Allow-Headers", "Content-Type");
-
-                String methode = e.getRequestMethod();
-
-                if (methode.equals("OPTIONS")) {
-                    e.sendResponseHeaders(204, -1);
-                    return;
-                }
-
-                String query = e.getRequestURI().getQuery();
-                String universIdStr = null;
-                if (query != null && query.startsWith("universId=")) {
-                    universIdStr = query.substring("universId=".length());
-                }
-
-                if (universIdStr == null) {
-                    String erreur = "{\"erreur\":\"Parametre universId manquant\"}";
-                    byte[] bytes = erreur.getBytes(StandardCharsets.UTF_8);
-                    e.sendResponseHeaders(400, bytes.length);
-                    OutputStream os = e.getResponseBody();
-                    os.write(bytes);
-                    os.close();
-                    return;
-                }
-
-                int universId = Integer.parseInt(universIdStr);
-
-                Univers universTrouve = null;
-                for (Livre l : biblio.livreliste) {
-                    for (Univers u : l.universliste) {
-                        if (u.id == universId) {
-                            universTrouve = u;
-                            break;
-                        }
-                    }
-                    if (universTrouve != null) break;
-                }
-
-                if (universTrouve == null) {
-                    String erreur = "{\"erreur\":\"Univers introuvable\"}";
-                    byte[] bytes = erreur.getBytes(StandardCharsets.UTF_8);
-                    e.sendResponseHeaders(404, bytes.length);
-                    OutputStream os = e.getResponseBody();
-                    os.write(bytes);
-                    os.close();
-                    return;
-                }
-
-                // ===== POST : créer un personnage =====
-                if (methode.equals("POST")) {
-                    InputStream is = e.getRequestBody();
-                    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-                    byte[] data = new byte[1024];
-                    int lus;
-                    while ((lus = is.read(data)) != -1) {
-                        buffer.write(data, 0, lus);
-                    }
-                    String corps = buffer.toString(StandardCharsets.UTF_8);
-
-                    PersonnageEntrant entrant = gson.fromJson(corps, PersonnageEntrant.class);
-                    String nom = entrant.nom != null ? entrant.nom : "";
-                    String prenom = entrant.prenom != null ? entrant.prenom : "";
-                    String description = entrant.description != null ? entrant.description : "";
-
-                    int nouvelId = 1;
-                    for (Livre l : biblio.livreliste) {
-                        for (Univers u : l.universliste) {
-                            for (Personnage p : u.listePersonnages) {
-                                if (p.id >= nouvelId) nouvelId = p.id + 1;
-                            }
-                        }
-                    }
-
-                    Personnage nouveau = new Personnage(nouvelId, nom, prenom, description);
-
-                    if (entrant.jour != null && entrant.mois != null && entrant.annee != null) {
-                        Date d = new Date(entrant.annee, entrant.mois, entrant.jour);
-                        nouveau.naissance(d);
-                    }
-
-                    if (entrant.jourDeces != null && entrant.moisDeces != null && entrant.anneeDeces != null) {
-                        nouveau.mort(new Date(entrant.anneeDeces, entrant.moisDeces, entrant.jourDeces));
-                    }
-
-                    // verification de coherence (fonction existante)
-                    if (nouveau.dateNaissance != null && nouveau.dateDeces != null
-                            && !nouveau.estcequevivant(nouveau.dateNaissance)) {
-                        String erreur = "{\"erreur\":\"Incoherence : le deces ne peut pas etre avant la naissance\"}";
-                        byte[] bytes = erreur.getBytes(StandardCharsets.UTF_8);
-                        e.sendResponseHeaders(400, bytes.length);
-                        OutputStream os = e.getResponseBody();
-                        os.write(bytes);
-                        os.close();
-                        return;
-                    }
-
-                    universTrouve.listePersonnages.add(nouveau);
-                    sauvegarderBibliothequeDansFichier();
-
-                    String reponse = "{\"statut\":\"ok\",\"id\":" + nouveau.id + "}";
-                    byte[] bytes = reponse.getBytes(StandardCharsets.UTF_8);
-                    e.sendResponseHeaders(200, bytes.length);
-                    OutputStream os = e.getResponseBody();
-                    os.write(bytes);
-                    os.close();
-                    return;
-                }
-
-                // ===== GET : lister les personnages =====
-                String json = gson.toJson(universTrouve.listePersonnages);
-                byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
-                e.sendResponseHeaders(200, bytes.length);
-                OutputStream os = e.getResponseBody();
-                os.write(bytes);
-                os.close();
-            }
-        });
-
-        // ============ /api/univers?livreId=X ============
-        serveur.createContext("/api/univers", new HttpHandler() {
-            @Override
-            public void handle(HttpExchange e) throws java.io.IOException {
-                String query = e.getRequestURI().getQuery();
-                String livreIdStr = null;
-                if (query != null && query.startsWith("livreId=")) {
-                    livreIdStr = query.substring("livreId=".length());
-                }
-
-                if (livreIdStr == null) {
-                    e.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
-                    String erreur = "{\"erreur\":\"Parametre livreId manquant\"}";
-                    byte[] bytes = erreur.getBytes(StandardCharsets.UTF_8);
-                    e.sendResponseHeaders(400, bytes.length);
-                    OutputStream os = e.getResponseBody();
-                    os.write(bytes);
-                    os.close();
-                    return;
-                }
-
-                gererUnivers(e, Integer.parseInt(livreIdStr));
-            }
-        });
-
-        // ============ /api/livres ============
-        serveur.createContext("/api/livres", new HttpHandler() {
-            @Override
-            public void handle(HttpExchange e) throws java.io.IOException {
-                e.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
-                e.getResponseHeaders().add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-                e.getResponseHeaders().add("Access-Control-Allow-Headers", "Content-Type");
-
-                String methode = e.getRequestMethod();
-
-                if (methode.equals("OPTIONS")) {
-                    e.sendResponseHeaders(204, -1);
-                    return;
-                }
-
-                if (methode.equals("POST")) {
-                    InputStream is = e.getRequestBody();
-                    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-                    byte[] data = new byte[1024];
-                    int lus;
-                    while ((lus = is.read(data)) != -1) {
-                        buffer.write(data, 0, lus);
-                    }
-                    String corps = buffer.toString(StandardCharsets.UTF_8);
-
-                    LivreEntrant entrant = gson.fromJson(corps, LivreEntrant.class);
-                    String nom = entrant.nom != null ? entrant.nom : "Sans nom";
-                    String type = entrant.type != null ? entrant.type : "";
-                    String description = entrant.description != null ? entrant.description : "";
-
-                    Livre nouveau = new Livre(prochainId, nom, type, description);
-                    prochainId++;
-                    biblio.ajoutelivre(nouveau);
-                    sauvegarderBibliothequeDansFichier();
-
-                    String reponse = "{\"statut\":\"ok\",\"id\":" + nouveau.id + "}";
-                    byte[] bytes = reponse.getBytes(StandardCharsets.UTF_8);
-                    e.sendResponseHeaders(200, bytes.length);
-                    OutputStream os = e.getResponseBody();
-                    os.write(bytes);
-                    os.close();
-                    return;
-                }
-
-                String json = gson.toJson(biblio.livreliste);
-                byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
-                e.sendResponseHeaders(200, bytes.length);
-                OutputStream os = e.getResponseBody();
-                os.write(bytes);
-                os.close();
-            }
-        });
+        serveur.createContext("/test", TestServeur::handleTest);
+        serveur.createContext("/api/personnages", TestServeur::handlePersonnages);
+        serveur.createContext("/api/univers", TestServeur::handleUnivers);
+        serveur.createContext("/api/livres", TestServeur::handleLivres);
 
         serveur.setExecutor(null);
         serveur.start();
         System.out.println("Serveur Java allume sur http://localhost:8080");
-        System.out.println("Appuie sur Ctrl+C pour l'arreter");
     }
 
-    // ============ Route POST/GET : univers d'un livre ============
-    static void gererUnivers(HttpExchange e, int livreId) throws java.io.IOException {
+    // ============================================================
+    //                       HANDLERS
+    // ============================================================
+
+    static void handleTest(HttpExchange e) throws java.io.IOException {
+        cors(e, "GET, OPTIONS");
+        if (estPreflight(e)) return;
+        repondreTexte(e, 200, "Bravo, la connexion Java Angular fonctionne !");
+    }
+
+    // ---------------------- /api/personnages ----------------------
+    static void handlePersonnages(HttpExchange e) throws java.io.IOException {
+        cors(e, "GET, POST, PUT, OPTIONS");
+        if (estPreflight(e)) return;
+
+        // Récupérer et valider universId
+        Integer universId = extraireIntQuery(e, "universId");
+        if (universId == null) {
+            repondreErreur(e, 400, "Parametre universId manquant");
+            return;
+        }
+
+        Univers univers = trouverUnivers(universId);
+        if (univers == null) {
+            repondreErreur(e, 404, "Univers introuvable");
+            return;
+        }
+
+        switch (e.getRequestMethod()) {
+            case "POST":  creerPersonnage(e, univers);     return;
+            case "PUT":   modifierPersonnage(e, univers);  return;
+            case "GET":   repondreJson(e, 200, univers.listePersonnages); return;
+            default:      repondreErreur(e, 405, "Methode non supportee");
+        }
+    }
+
+    static void creerPersonnage(HttpExchange e, Univers univers) throws java.io.IOException {
+        PersonnageEntrant entrant = lireCorps(e, PersonnageEntrant.class);
+        Personnage nouveau = new Personnage(genererIdPersonnage(), entrant.nom, entrant.prenom, entrant.description);
+
+        appliquerDates(nouveau, entrant);
+
+        if (!datesCoherentes(nouveau)) {
+            repondreErreur(e, 400, "Incoherence : le deces ne peut pas etre avant la naissance");
+            return;
+        }
+
+        univers.listePersonnages.add(nouveau);
+        sauvegarderBibliothequeDansFichier();
+        repondreJson(e, 200, new ReponseId("ok", nouveau.id));
+    }
+
+    static void modifierPersonnage(HttpExchange e, Univers univers) throws java.io.IOException {
+        PersonnageEntrant entrant = lireCorps(e, PersonnageEntrant.class);
+
+        if (entrant.id == null) {
+            repondreErreur(e, 400, "ID manquant pour la modification");
+            return;
+        }
+
+        Personnage cible = trouverPersonnage(univers, entrant.id);
+        if (cible == null) {
+            repondreErreur(e, 404, "Personnage introuvable");
+            return;
+        }
+
+        if (entrant.nom != null)         cible.nom = entrant.nom;
+        if (entrant.prenom != null)      cible.prenom = entrant.prenom;
+        if (entrant.description != null) cible.description = entrant.description;
+
+        appliquerDates(cible, entrant);
+
+        if (!datesCoherentes(cible)) {
+            repondreErreur(e, 400, "Incoherence : le deces ne peut pas etre avant la naissance");
+            return;
+        }
+
+        sauvegarderBibliothequeDansFichier();
+        repondreJson(e, 200, new ReponseId("ok", cible.id));
+    }
+
+    // ---------------------- /api/univers ----------------------
+    static void handleUnivers(HttpExchange e) throws java.io.IOException {
+        cors(e, "GET, POST, OPTIONS");
+        if (estPreflight(e)) return;
+
+        Integer livreId = extraireIntQuery(e, "livreId");
+        if (livreId == null) {
+            repondreErreur(e, 400, "Parametre livreId manquant");
+            return;
+        }
+
+        Livre livre = trouverLivre(livreId);
+        if (livre == null) {
+            repondreErreur(e, 404, "Livre introuvable");
+            return;
+        }
+
+        switch (e.getRequestMethod()) {
+            case "POST": creerUnivers(e, livre); return;
+            case "GET":  repondreJson(e, 200, livre.universliste); return;
+            default:     repondreErreur(e, 405, "Methode non supportee");
+        }
+    }
+
+    static void creerUnivers(HttpExchange e, Livre livre) throws java.io.IOException {
+        UniversEntrant entrant = lireCorps(e, UniversEntrant.class);
+        Univers nouveau = new Univers(genererIdUnivers(), entrant.nom);
+        nouveau.type = entrant.type != null ? entrant.type : "";
+
+        livre.universliste.add(nouveau);
+        sauvegarderBibliothequeDansFichier();
+        repondreJson(e, 200, new ReponseId("ok", nouveau.id));
+    }
+
+    // ---------------------- /api/livres ----------------------
+    static void handleLivres(HttpExchange e) throws java.io.IOException {
+        cors(e, "GET, POST, OPTIONS");
+        if (estPreflight(e)) return;
+
+        switch (e.getRequestMethod()) {
+            case "POST": creerLivre(e); return;
+            case "GET":  repondreJson(e, 200, biblio.livreliste); return;
+            default:     repondreErreur(e, 405, "Methode non supportee");
+        }
+    }
+
+    static void creerLivre(HttpExchange e) throws java.io.IOException {
+        LivreEntrant entrant = lireCorps(e, LivreEntrant.class);
+        Livre nouveau = new Livre(
+            prochainId++,
+            entrant.nom != null ? entrant.nom : "Sans nom",
+            entrant.type != null ? entrant.type : "",
+            entrant.description != null ? entrant.description : ""
+        );
+
+        biblio.ajoutelivre(nouveau);
+        sauvegarderBibliothequeDansFichier();
+        repondreJson(e, 200, new ReponseId("ok", nouveau.id));
+    }
+
+    // ============================================================
+    //                    HELPERS HTTP
+    // ============================================================
+
+    /** Ajoute les en-têtes CORS. */
+    static void cors(HttpExchange e, String methodes) {
         e.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
-        e.getResponseHeaders().add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        e.getResponseHeaders().add("Access-Control-Allow-Methods", methodes);
         e.getResponseHeaders().add("Access-Control-Allow-Headers", "Content-Type");
+    }
 
-        String methode = e.getRequestMethod();
-
-        if (methode.equals("OPTIONS")) {
+    /** Renvoie true si c'est une requête preflight (OPTIONS). */
+    static boolean estPreflight(HttpExchange e) throws java.io.IOException {
+        if (e.getRequestMethod().equals("OPTIONS")) {
             e.sendResponseHeaders(204, -1);
-            return;
+            return true;
         }
+        return false;
+    }
 
-        Livre livreTrouve = null;
-        for (Livre l : biblio.livreliste) {
-            if (l.id == livreId) {
-                livreTrouve = l;
-                break;
-            }
-        }
+    /** Lit le corps de la requête et le désérialise en objet. */
+    static <T> T lireCorps(HttpExchange e, Class<T> classe) throws java.io.IOException {
+        InputStream is = e.getRequestBody();
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        byte[] data = new byte[1024];
+        int lus;
+        while ((lus = is.read(data)) != -1) buffer.write(data, 0, lus);
+        String corps = buffer.toString(StandardCharsets.UTF_8);
+        return gson.fromJson(corps, classe);
+    }
 
-        if (livreTrouve == null) {
-            String erreur = "{\"erreur\":\"Livre introuvable\"}";
-            byte[] bytes = erreur.getBytes(StandardCharsets.UTF_8);
-            e.sendResponseHeaders(404, bytes.length);
-            OutputStream os = e.getResponseBody();
-            os.write(bytes);
-            os.close();
-            return;
-        }
+    /** Envoie une réponse JSON avec un code HTTP. */
+    static void repondreJson(HttpExchange e, int code, Object contenu) throws java.io.IOException {
+        String json = gson.toJson(contenu);
+        repondreTexte(e, code, json);
+    }
 
-        if (methode.equals("POST")) {
-            InputStream is = e.getRequestBody();
-            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-            byte[] data = new byte[1024];
-            int lus;
-            while ((lus = is.read(data)) != -1) {
-                buffer.write(data, 0, lus);
-            }
-            String corps = buffer.toString(StandardCharsets.UTF_8);
-
-            UniversEntrant entrant = gson.fromJson(corps, UniversEntrant.class);
-            String nom = entrant.nom != null ? entrant.nom : "Univers sans nom";
-            String type = entrant.type != null ? entrant.type : "";
-
-            int nouvelId = 1;
-            for (Livre l : biblio.livreliste) {
-                for (Univers u : l.universliste) {
-                    if (u.id >= nouvelId) nouvelId = u.id + 1;
-                }
-            }
-
-            Univers nouveau = new Univers(nouvelId, nom);
-            nouveau.type = type;
-            livreTrouve.universliste.add(nouveau);
-            sauvegarderBibliothequeDansFichier();
-
-            String reponse = "{\"statut\":\"ok\",\"id\":" + nouveau.id + "}";
-            byte[] bytes = reponse.getBytes(StandardCharsets.UTF_8);
-            e.sendResponseHeaders(200, bytes.length);
-            OutputStream os = e.getResponseBody();
-            os.write(bytes);
-            os.close();
-            return;
-        }
-
-        String json = gson.toJson(livreTrouve.universliste);
-        byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
-        e.sendResponseHeaders(200, bytes.length);
+    /** Envoie une réponse texte avec un code HTTP. */
+    static void repondreTexte(HttpExchange e, int code, String texte) throws java.io.IOException {
+        byte[] bytes = texte.getBytes(StandardCharsets.UTF_8);
+        e.sendResponseHeaders(code, bytes.length);
         OutputStream os = e.getResponseBody();
         os.write(bytes);
         os.close();
     }
 
-    // ============ Classes pour lire le JSON entrant ============
+    /** Renvoie une erreur JSON { "erreur": "..." }. */
+    static void repondreErreur(HttpExchange e, int code, String message) throws java.io.IOException {
+        repondreTexte(e, code, "{\"erreur\":\"" + message + "\"}");
+    }
+
+    /** Récupère un paramètre de query en entier, ou null. */
+    static Integer extraireIntQuery(HttpExchange e, String nom) {
+        String query = e.getRequestURI().getQuery();
+        if (query == null) return null;
+        for (String part : query.split("&")) {
+            if (part.startsWith(nom + "=")) {
+                try {
+                    return Integer.parseInt(part.substring(nom.length() + 1));
+                } catch (NumberFormatException ex) {
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+
+    // ============================================================
+    //                    HELPERS MÉTIER
+    // ============================================================
+
+    static Univers trouverUnivers(int id) {
+        for (Livre l : biblio.livreliste)
+            for (Univers u : l.universliste)
+                if (u.id == id) return u;
+        return null;
+    }
+
+    static Livre trouverLivre(int id) {
+        for (Livre l : biblio.livreliste)
+            if (l.id == id) return l;
+        return null;
+    }
+
+    static Personnage trouverPersonnage(Univers u, int id) {
+        for (Personnage p : u.listePersonnages)
+            if (p.id == id) return p;
+        return null;
+    }
+
+    static int genererIdPersonnage() {
+        int max = 0;
+        for (Livre l : biblio.livreliste)
+            for (Univers u : l.universliste)
+                for (Personnage p : u.listePersonnages)
+                    if (p.id >= max) max = p.id + 1;
+        return max == 0 ? 1 : max;
+    }
+
+    static int genererIdUnivers() {
+        int max = 0;
+        for (Livre l : biblio.livreliste)
+            for (Univers u : l.universliste)
+                if (u.id >= max) max = u.id + 1;
+        return max == 0 ? 1 : max;
+    }
+
+    static void appliquerDates(Personnage p, PersonnageEntrant e) {
+        if (e.jour != null && e.mois != null && e.annee != null)
+            p.dateNaissance = new Date(e.annee, e.mois, e.jour);
+        if (e.jourDeces != null && e.moisDeces != null && e.anneeDeces != null)
+            p.dateDeces = new Date(e.anneeDeces, e.moisDeces, e.jourDeces);
+    }
+
+    static boolean datesCoherentes(Personnage p) {
+        if (p.dateNaissance == null || p.dateDeces == null) return true;
+        return p.estcequevivant(p.dateNaissance);
+    }
+
+    // ============================================================
+    //                    CLASSES DTO
+    // ============================================================
+
     static class LivreEntrant {
         String nom;
         String type;
@@ -341,6 +318,7 @@ public class TestServeur {
     }
 
     static class PersonnageEntrant {
+        Integer id;
         String nom;
         String prenom;
         String description;
@@ -352,44 +330,42 @@ public class TestServeur {
         Integer anneeDeces;
     }
 
-    // ============ Données de test ============
-    static void ajouterDonneesDeTestSiVide() {
-        if (!biblio.livreliste.isEmpty()) {
-            System.out.println("Bibliotheque non vide, pas de donnees de test ajoutees");
-            return;
+    /** Réponse standard { "statut": "...", "id": N }. */
+    static class ReponseId {
+        String statut;
+        int id;
+        ReponseId(String statut, int id) {
+            this.statut = statut;
+            this.id = id;
         }
+    }
+
+    // ============================================================
+    //              DONNÉES DE TEST + PERSISTANCE
+    // ============================================================
+
+    static void ajouterDonneesDeTestSiVide() {
+        if (!biblio.livreliste.isEmpty()) return;
 
         System.out.println("Bibliotheque vide, ajout de donnees de test...");
 
         Livre livre1 = new Livre(1, "Le Seigneur des Anneaux", "Fantastique", "Une quete epique");
         Univers univers1 = new Univers(1, "Terre du Milieu");
-
-        Personnage frodon = new Personnage(1, "Baggins", "Frodon", "Porteur de l'Anneau");
-        Personnage gandalf = new Personnage(2, "Le Gris", "Gandalf", "Magicien Istari");
-
-        univers1.ajoutepersonnage(frodon);
-        univers1.ajoutepersonnage(gandalf);
+        univers1.ajoutepersonnage(new Personnage(1, "Baggins", "Frodon", "Porteur de l'Anneau"));
+        univers1.ajoutepersonnage(new Personnage(2, "Le Gris", "Gandalf", "Magicien Istari"));
         livre1.universliste.add(univers1);
 
         Livre livre2 = new Livre(2, "Star Wars", "Science-Fiction", "Une galaxie lointaine");
         Univers univers2 = new Univers(2, "Galaxie lointaine");
-
-        Personnage luke = new Personnage(3, "Skywalker", "Luke", "Jedi");
-        Personnage leia = new Personnage(4, "Organa", "Leia", "Princesse rebelle");
-
-        univers2.ajoutepersonnage(luke);
-        univers2.ajoutepersonnage(leia);
+        univers2.ajoutepersonnage(new Personnage(3, "Skywalker", "Luke", "Jedi"));
+        univers2.ajoutepersonnage(new Personnage(4, "Organa", "Leia", "Princesse rebelle"));
         livre2.universliste.add(univers2);
 
         Livre livre3 = new Livre(3, "Chroniques Paralleles", "Fantastique", "Deux mondes en parallele");
         Univers univers3a = new Univers(3, "Monde Reel");
         Univers univers3b = new Univers(4, "Monde Miroir");
-
-        Personnage alice = new Personnage(5, "Dupont", "Alice", "Vit dans le monde reel");
-        Personnage aliceMiroir = new Personnage(6, "Dupont", "Alice (miroir)", "Son double dans le monde miroir");
-
-        univers3a.ajoutepersonnage(alice);
-        univers3b.ajoutepersonnage(aliceMiroir);
+        univers3a.ajoutepersonnage(new Personnage(5, "Dupont", "Alice", "Vit dans le monde reel"));
+        univers3b.ajoutepersonnage(new Personnage(6, "Dupont", "Alice (miroir)", "Son double dans le monde miroir"));
         livre3.universliste.add(univers3a);
         livre3.universliste.add(univers3b);
 
@@ -398,34 +374,29 @@ public class TestServeur {
         biblio.ajoutelivre(livre3);
 
         prochainId = 4;
-
         sauvegarderBibliothequeDansFichier();
         System.out.println("3 livres de test ajoutes avec leurs personnages");
     }
 
-    // ============ Chargement / sauvegarde ============
     static void chargerBibliothequeDepuisFichier() {
-        if (Files.exists(FICHIER_BIBLIOTHEQUE)) {
-            try {
-                String contenu = Files.readString(FICHIER_BIBLIOTHEQUE);
-                Bibliotheque chargee = gson.fromJson(contenu, Bibliotheque.class);
-                if (chargee != null) {
-                    biblio = chargee;
-                    for (Livre l : biblio.livreliste) {
-                        if (l.id >= prochainId) prochainId = l.id + 1;
-                    }
-                }
-                System.out.println(biblio.livreliste.size() + " livre(s) charge(s) depuis " + FICHIER_BIBLIOTHEQUE);
-            } catch (Exception ex) {
-                System.out.println("Erreur de lecture de la bibliotheque: " + ex.getMessage());
+        if (!Files.exists(FICHIER_BIBLIOTHEQUE)) return;
+        try {
+            String contenu = Files.readString(FICHIER_BIBLIOTHEQUE);
+            Bibliotheque chargee = gson.fromJson(contenu, Bibliotheque.class);
+            if (chargee != null) {
+                biblio = chargee;
+                for (Livre l : biblio.livreliste)
+                    if (l.id >= prochainId) prochainId = l.id + 1;
             }
+            System.out.println(biblio.livreliste.size() + " livre(s) charge(s) depuis " + FICHIER_BIBLIOTHEQUE);
+        } catch (Exception ex) {
+            System.out.println("Erreur de lecture de la bibliotheque: " + ex.getMessage());
         }
     }
 
     static void sauvegarderBibliothequeDansFichier() {
         try {
-            String json = gson.toJson(biblio);
-            Files.writeString(FICHIER_BIBLIOTHEQUE, json);
+            Files.writeString(FICHIER_BIBLIOTHEQUE, gson.toJson(biblio));
         } catch (Exception ex) {
             System.out.println("Erreur d'ecriture de la bibliotheque: " + ex.getMessage());
         }
