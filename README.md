@@ -42,6 +42,7 @@ Quand on écrit un roman, il devient vite difficile de suivre qui est qui, qui c
 __*Pourquoi cette stack ?*__
 
 Je voulais construire la logique métier en Java pur pour bien maîtriser la conception orientée objet, sans m'appuyer sur un framework. Le serveur HTTP du JDK et un fichier JSON suffisent pour exposer le modèle à une interface web.
+
 ---
 
 ## Fonctionnalités
