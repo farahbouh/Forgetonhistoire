@@ -17,7 +17,7 @@ import VueGlobale.Univers;
 import Elements.Personnage;
 import Temporalite.Date;
 
-public class TestServeur {
+public class ServeurApi {
 
     // ============ ÉTAT GLOBAL ============
     static final Gson gson = new Gson();
@@ -32,10 +32,10 @@ public class TestServeur {
 
         HttpServer serveur = HttpServer.create(new InetSocketAddress(8080), 0);
 
-        serveur.createContext("/test", TestServeur::handleTest);
-        serveur.createContext("/api/personnages", TestServeur::handlePersonnages);
-        serveur.createContext("/api/univers", TestServeur::handleUnivers);
-        serveur.createContext("/api/livres", TestServeur::handleLivres);
+        serveur.createContext("/test", ServeurApi::handleTest);
+        serveur.createContext("/api/personnages", ServeurApi::handlePersonnages);
+        serveur.createContext("/api/univers", ServeurApi::handleUnivers);
+        serveur.createContext("/api/livres", ServeurApi::handleLivres);
 
         serveur.setExecutor(null);
         serveur.start();
