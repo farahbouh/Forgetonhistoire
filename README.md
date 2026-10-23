@@ -21,7 +21,9 @@
 
 ## Pourquoi ce projet ?
 
-Quand on écrit un roman, il devient vite difficile de suivre qui est qui, qui connaît qui, quel lieu existe à quelle époque et dans quel ordre se passent les événements. Forge ton histoire permet de modéliser tout cela et de repérer les incohérences, par exemple un personnage qui apparaît après sa mort.
+Application Java pour structurer un univers romanesque, avec gestion des personnages, lieux, événements et chronologie.
+
+Le projet a été conçu pour centraliser les éléments narratifs dans un modèle cohérent et exploitable à travers une API REST et une interface console.
 
 > **Avancement :** le backend en Java est fonctionnel. L'interface Angular qui s'y connecte est en cours de développement.
 
@@ -41,7 +43,9 @@ Quand on écrit un roman, il devient vite difficile de suivre qui est qui, qui c
 
 __*Pourquoi cette stack ?*__
 
-Je voulais construire la logique métier en Java pur pour bien maîtriser la conception orientée objet, sans m'appuyer sur un framework. Le serveur HTTP du JDK et un fichier JSON suffisent pour exposer le modèle à une interface web.
+La logique métier a été implémentée en Java pur afin de maîtriser la conception orientée objet sans dépendre d'un framework. Le serveur HTTP intégré au JDK, associé à un fichier JSON, permet d'obtenir une architecture légère, compréhensible et facile à faire évoluer.
+
+Cette approche favorise un contrôle clair sur la logique applicative, la validation des données et la persistance des informations au fil du développement.
 
 ---
 
@@ -112,7 +116,7 @@ Le serveur démarre sur http://localhost:8080 ; testez-le avec `http://localhost
 java -cp "out:gson.jar" AppConsole        # Windows : "out;gson.jar"
 ```
 
-Un menu permet de lister et créer des livres, des univers et des personnages, et de savoir si un personnage est vivant à une année donnée. Les données sont enregistrées dans le même fichier `bibliotheque.json` que le serveur : lancez la commande depuis la racine du dépôt pour retrouver vos données.
+Un menu permet de lister et créer des livres, des univers et des personnages, et de savoir si un personnage est vivant à une année donnée. Les données sont enregistrées dans le même fichier JSON que l’API.
 
 **Lancer les tests :**
 
