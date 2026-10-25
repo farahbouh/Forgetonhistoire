@@ -10,22 +10,26 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 
 import VueGlobale.Bibliotheque;
 import VueGlobale.Livre;
 import VueGlobale.Univers;
 import Elements.Personnage;
+import Elements.Lieux;
+import Elements.Evenement;
 import Temporalite.Date;
+import Temporalite.Calendrier;
 
 public class ServeurApi {
 
-    // ============ ÉTAT GLOBAL ============
+    // ============ ETAT GLOBAL ============
     static final Gson gson = new Gson();
     static final Path FICHIER_BIBLIOTHEQUE = Paths.get("bibliotheque.json");
     static Bibliotheque biblio = new Bibliotheque(1, "Ma Bibliotheque", "Principale");
     static int prochainId = 1;
 
-    // ============ POINT D'ENTRÉE ============
+    // ============ POINT D'ENTREE ============
     public static void main(String[] args) throws Exception {
         chargerBibliothequeDepuisFichier();
         ajouterDonneesDeTestSiVide();
@@ -36,6 +40,10 @@ public class ServeurApi {
         serveur.createContext("/api/personnages", ServeurApi::handlePersonnages);
         serveur.createContext("/api/univers", ServeurApi::handleUnivers);
         serveur.createContext("/api/livres", ServeurApi::handleLivres);
+        serveur.createContext("/api/lieux", ServeurApi::handleLieux);
+        serveur.createContext("/api/evenements", ServeurApi::handleEvenements);
+        serveur.createContext("/api/calendrier", ServeurApi::handleCalendrier);
+        // /api/liens : reporte, le modele Lien est un groupe de 3 listes (pas un lien binaire)
 
         serveur.setExecutor(null);
         serveur.start();
@@ -57,7 +65,6 @@ public class ServeurApi {
         cors(e, "GET, POST, PUT, OPTIONS");
         if (estPreflight(e)) return;
 
-        // Récupérer et valider universId
         Integer universId = extraireIntQuery(e, "universId");
         if (universId == null) {
             repondreErreur(e, 400, "Parametre universId manquant");
@@ -184,17 +191,212 @@ public class ServeurApi {
     }
 
     // ============================================================
+    //                 /api/lieux
+    // ============================================================
+    static void handleLieux(HttpExchange e) throws java.io.IOException {
+        cors(e, "GET, POST, PUT, OPTIONS");
+        if (estPreflight(e)) return;
+
+        Integer universId = extraireIntQuery(e, "universId");
+        if (universId == null) {
+            repondreErreur(e, 400, "Parametre universId manquant");
+            return;
+        }
+
+        Univers univers = trouverUnivers(universId);
+        if (univers == null) {
+            repondreErreur(e, 404, "Univers introuvable");
+            return;
+        }
+
+        switch (e.getRequestMethod()) {
+            case "POST": creerLieu(e, univers);    return;
+            case "PUT":  modifierLieu(e, univers); return;
+            case "GET":  repondreJson(e, 200, univers.listeLieux); return;
+            default:     repondreErreur(e, 405, "Methode non supportee");
+        }
+    }
+
+    static void creerLieu(HttpExchange e, Univers univers) throws java.io.IOException {
+        LieuEntrant entrant = lireCorps(e, LieuEntrant.class);
+        Lieux nouveau = new Lieux(genererIdLieu(), entrant.nom, entrant.type);
+
+        univers.listeLieux.add(nouveau);
+        sauvegarderBibliothequeDansFichier();
+        repondreJson(e, 200, new ReponseId("ok", nouveau.id));
+    }
+
+    static void modifierLieu(HttpExchange e, Univers univers) throws java.io.IOException {
+        LieuEntrant entrant = lireCorps(e, LieuEntrant.class);
+
+        if (entrant.id == null) {
+            repondreErreur(e, 400, "ID manquant pour la modification");
+            return;
+        }
+
+        Lieux cible = trouverLieu(univers, entrant.id);
+        if (cible == null) {
+            repondreErreur(e, 404, "Lieu introuvable");
+            return;
+        }
+
+        // Le modele Lieux utilise des listes pour nom et type (un lieu peut changer
+        // de nom/type au fil du temps). On ajoute ici une nouvelle entree si elle est fournie.
+        if (entrant.nom != null && !entrant.nom.isBlank()) {
+            cible.nom.add(entrant.nom);
+        }
+        if (entrant.type != null && !entrant.type.isBlank()) {
+            cible.type.add(entrant.type);
+        }
+
+        sauvegarderBibliothequeDansFichier();
+        repondreJson(e, 200, new ReponseId("ok", cible.id));
+    }
+
+    // ============================================================
+    //                 /api/evenements
+    // ============================================================
+    static void handleEvenements(HttpExchange e) throws java.io.IOException {
+        cors(e, "GET, POST, PUT, OPTIONS");
+        if (estPreflight(e)) return;
+
+        Integer universId = extraireIntQuery(e, "universId");
+        if (universId == null) {
+            repondreErreur(e, 400, "Parametre universId manquant");
+            return;
+        }
+
+        Univers univers = trouverUnivers(universId);
+        if (univers == null) {
+            repondreErreur(e, 404, "Univers introuvable");
+            return;
+        }
+
+        switch (e.getRequestMethod()) {
+            case "POST": creerEvenement(e, univers);    return;
+            case "PUT":  modifierEvenement(e, univers); return;
+            case "GET":  repondreJson(e, 200, univers.listeEvenements); return;
+            default:     repondreErreur(e, 405, "Methode non supportee");
+        }
+    }
+
+    static void creerEvenement(HttpExchange e, Univers univers) throws java.io.IOException {
+        EvenementEntrant entrant = lireCorps(e, EvenementEntrant.class);
+
+        Evenement nouveau = new Evenement(
+            genererIdEvenement(),
+            entrant.titre != null ? entrant.titre : "",
+            entrant.description != null ? entrant.description : ""
+        );
+
+        if (entrant.jour != null && entrant.mois != null && entrant.annee != null) {
+            nouveau.dateDebut = new Date(entrant.annee, entrant.mois, entrant.jour);
+        }
+
+        univers.listeEvenements.add(nouveau);
+        sauvegarderBibliothequeDansFichier();
+        repondreJson(e, 200, new ReponseId("ok", nouveau.id));
+    }
+
+    static void modifierEvenement(HttpExchange e, Univers univers) throws java.io.IOException {
+        EvenementEntrant entrant = lireCorps(e, EvenementEntrant.class);
+
+        if (entrant.id == null) {
+            repondreErreur(e, 400, "ID manquant pour la modification");
+            return;
+        }
+
+        Evenement cible = trouverEvenement(univers, entrant.id);
+        if (cible == null) {
+            repondreErreur(e, 404, "Evenement introuvable");
+            return;
+        }
+
+        if (entrant.titre != null)       cible.titre = entrant.titre;
+        if (entrant.description != null) cible.description = entrant.description;
+        if (entrant.jour != null && entrant.mois != null && entrant.annee != null) {
+            cible.dateDebut = new Date(entrant.annee, entrant.mois, entrant.jour);
+        }
+
+        sauvegarderBibliothequeDansFichier();
+        repondreJson(e, 200, new ReponseId("ok", cible.id));
+    }
+
+    // ============================================================
+    //                 /api/calendrier
+    // ============================================================
+    static void handleCalendrier(HttpExchange e) throws java.io.IOException {
+        cors(e, "GET, POST, OPTIONS");
+        if (estPreflight(e)) return;
+
+        Integer universId = extraireIntQuery(e, "universId");
+        if (universId == null) {
+            repondreErreur(e, 400, "Parametre universId manquant");
+            return;
+        }
+
+        Univers univers = trouverUnivers(universId);
+        if (univers == null) {
+            repondreErreur(e, 404, "Univers introuvable");
+            return;
+        }
+
+        switch (e.getRequestMethod()) {
+            case "POST": ajouterDateCalendrier(e, univers); return;
+            case "GET":
+                if (univers.calendrier == null) {
+                    repondreErreur(e, 404, "Calendrier non initialise pour cet univers");
+                    return;
+                }
+                repondreJson(e, 200, univers.calendrier);
+                return;
+            default:     repondreErreur(e, 405, "Methode non supportee");
+        }
+    }
+
+    static void ajouterDateCalendrier(HttpExchange e, Univers univers) throws java.io.IOException {
+        CalendrierEntrant entrant = lireCorps(e, CalendrierEntrant.class);
+
+        if (entrant.jour == null || entrant.mois == null || entrant.annee == null) {
+            repondreErreur(e, 400, "Jour, mois et annee obligatoires");
+            return;
+        }
+
+        Date nouvelle = new Date(entrant.annee, entrant.mois, entrant.jour);
+
+        // Le calendrier prend (maxi, mini) dans le constructeur.
+        // On l'initialise a la premiere utilisation.
+        if (univers.calendrier == null) {
+            univers.calendrier = new Calendrier(
+                new Date(9999, 12, 31),
+                new Date(-9999, 1, 1)
+            );
+        }
+
+        int avant = univers.calendrier.grille.size();
+        univers.calendrier.ajouterDate(nouvelle);
+        int apres = univers.calendrier.grille.size();
+
+        if (apres == avant) {
+            // ajouterDate n'a rien ajoute (doublon, hors bornes, etc.)
+            repondreErreur(e, 400, "Date invalide ou deja presente (ou hors bornes du calendrier)");
+            return;
+        }
+
+        sauvegarderBibliothequeDansFichier();
+        repondreJson(e, 200, new ReponseId("ok", 0));
+    }
+
+    // ============================================================
     //                    HELPERS HTTP
     // ============================================================
 
-    /** Ajoute les en-têtes CORS. */
     static void cors(HttpExchange e, String methodes) {
         e.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
         e.getResponseHeaders().add("Access-Control-Allow-Methods", methodes);
         e.getResponseHeaders().add("Access-Control-Allow-Headers", "Content-Type");
     }
 
-    /** Renvoie true si c'est une requête preflight (OPTIONS). */
     static boolean estPreflight(HttpExchange e) throws java.io.IOException {
         if (e.getRequestMethod().equals("OPTIONS")) {
             e.sendResponseHeaders(204, -1);
@@ -203,7 +405,6 @@ public class ServeurApi {
         return false;
     }
 
-    /** Lit le corps de la requête et le désérialise en objet. */
     static <T> T lireCorps(HttpExchange e, Class<T> classe) throws java.io.IOException {
         InputStream is = e.getRequestBody();
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
@@ -214,13 +415,11 @@ public class ServeurApi {
         return gson.fromJson(corps, classe);
     }
 
-    /** Envoie une réponse JSON avec un code HTTP. */
     static void repondreJson(HttpExchange e, int code, Object contenu) throws java.io.IOException {
         String json = gson.toJson(contenu);
         repondreTexte(e, code, json);
     }
 
-    /** Envoie une réponse texte avec un code HTTP. */
     static void repondreTexte(HttpExchange e, int code, String texte) throws java.io.IOException {
         byte[] bytes = texte.getBytes(StandardCharsets.UTF_8);
         e.sendResponseHeaders(code, bytes.length);
@@ -229,12 +428,10 @@ public class ServeurApi {
         os.close();
     }
 
-    /** Renvoie une erreur JSON { "erreur": "..." }. */
     static void repondreErreur(HttpExchange e, int code, String message) throws java.io.IOException {
         repondreTexte(e, code, "{\"erreur\":\"" + message + "\"}");
     }
 
-    /** Récupère un paramètre de query en entier, ou null. */
     static Integer extraireIntQuery(HttpExchange e, String nom) {
         String query = e.getRequestURI().getQuery();
         if (query == null) return null;
@@ -251,7 +448,7 @@ public class ServeurApi {
     }
 
     // ============================================================
-    //                    HELPERS MÉTIER
+    //                    HELPERS METIER
     // ============================================================
 
     static Univers trouverUnivers(int id) {
@@ -273,6 +470,22 @@ public class ServeurApi {
         return null;
     }
 
+    static Lieux trouverLieu(Univers u, int id) {
+        for (Lieux l : u.listeLieux)
+            if (l.id == id) return l;
+        return null;
+    }
+
+    static Evenement trouverEvenement(Univers u, int id) {
+        for (Evenement ev : u.listeEvenements)
+            if (ev.id == id) return ev;
+        return null;
+    }
+
+    // ============================================================
+    //                    GENERATEURS D'ID
+    // ============================================================
+
     static int genererIdPersonnage() {
         int max = 0;
         for (Livre l : biblio.livreliste)
@@ -287,6 +500,24 @@ public class ServeurApi {
         for (Livre l : biblio.livreliste)
             for (Univers u : l.universliste)
                 if (u.id >= max) max = u.id + 1;
+        return max == 0 ? 1 : max;
+    }
+
+    static int genererIdLieu() {
+        int max = 0;
+        for (Livre l : biblio.livreliste)
+            for (Univers u : l.universliste)
+                for (Lieux lieu : u.listeLieux)
+                    if (lieu.id >= max) max = lieu.id + 1;
+        return max == 0 ? 1 : max;
+    }
+
+    static int genererIdEvenement() {
+        int max = 0;
+        for (Livre l : biblio.livreliste)
+            for (Univers u : l.universliste)
+                for (Evenement ev : u.listeEvenements)
+                    if (ev.id >= max) max = ev.id + 1;
         return max == 0 ? 1 : max;
     }
 
@@ -330,7 +561,27 @@ public class ServeurApi {
         Integer anneeDeces;
     }
 
-    /** Réponse standard { "statut": "...", "id": N }. */
+    static class LieuEntrant {
+        Integer id;
+        String nom;
+        String type;
+    }
+
+    static class EvenementEntrant {
+        Integer id;
+        String titre;
+        String description;
+        Integer jour;
+        Integer mois;
+        Integer annee;
+    }
+
+    static class CalendrierEntrant {
+        Integer jour;
+        Integer mois;
+        Integer annee;
+    }
+
     static class ReponseId {
         String statut;
         int id;
@@ -341,7 +592,7 @@ public class ServeurApi {
     }
 
     // ============================================================
-    //              DONNÉES DE TEST + PERSISTANCE
+    //              DONNEES DE TEST + PERSISTANCE
     // ============================================================
 
     static void ajouterDonneesDeTestSiVide() {
