@@ -10,7 +10,7 @@
 
 ![Java](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)
 ![API REST](https://img.shields.io/badge/API-REST-0D7377)
-![Angular](https://img.shields.io/badge/Angular-interface%20en%20cours-DD0031?logo=angular&logoColor=white)
+![Angular](https://img.shields.io/badge/Angular-interface%20connect%C3%A9e-DD0031?logo=angular&logoColor=white)
 ![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow?logo=conventionalcommits)
 
 [Installation](#mise-en-place) · [API](#api-rest) · [Signaler un bug](../../issues)
@@ -25,7 +25,7 @@ Application Java pour structurer un univers romanesque, avec gestion des personn
 
 Le projet a été conçu pour centraliser les éléments narratifs dans un modèle cohérent et exploitable à travers une API REST et une interface console.
 
-> **Avancement :** le backend en Java est fonctionnel. L'interface Angular qui s'y connecte est en cours de développement.
+> **Avancement :** le backend en Java est fonctionnel. L'interface Angular est connectée et couvre un parcours complet : livres, univers, personnages (création, modification, dates, statut vivant/mort). Elle est disponible dans un dépôt séparé : [Forgetonhistoire-Web](https://github.com/farahbouh/Forgetonhistoire-Web).
 
 ---
 
@@ -39,7 +39,7 @@ Le projet a été conçu pour centraliser les éléments narratifs dans un modè
 | **Console** | Menu en ligne de commande (`AppConsole`), sans navigateur |
 | **Tests** | Programme de tests dans `Main.java` (27 vérifications) |
 | **CI** | GitHub Actions : compilation et tests à chaque push |
-| **Frontend** | Angular (en cours) |
+| **Frontend** | [Angular](https://github.com/farahbouh/Forgetonhistoire-Web) : composants standalone, signals, `HttpClient` |
 
 __*Pourquoi cette stack ?*__
 
@@ -173,9 +173,15 @@ java -cp out Main
 
 ## Prochaines étapes
 
-- Terminer l'interface Angular et la relier à l'API
-- Ajouter la suppression des personnages, ainsi que les routes pour les lieux et les événements
+**Interface Angular** (voir [Forgetonhistoire-Web](https://github.com/farahbouh/Forgetonhistoire-Web))
+- Suppression de personnages
+- Découpage en composants plus petits (livres, univers, personnages)
+- Écrans pour les lieux et les événements
 
+**API Java**
+- Ajouter les routes `DELETE` (livres, univers, personnages)
+- Exposer les routes pour les lieux et les événements dans l'interface
+- Ajouter la gestion des liens entre entités
 ---
 
 ## Ce que ce projet m'a appris
