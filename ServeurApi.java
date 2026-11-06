@@ -62,7 +62,7 @@ public class ServeurApi {
 
     // ---------------------- /api/personnages ----------------------
     static void handlePersonnages(HttpExchange e) throws java.io.IOException {
-        cors(e, "GET, POST, PUT, OPTIONS");
+        cors(e, "GET, POST, PUT, DELETE, OPTIONS");
         if (estPreflight(e)) return;
 
         Integer universId = extraireIntQuery(e, "universId");
@@ -80,6 +80,7 @@ public class ServeurApi {
         switch (e.getRequestMethod()) {
             case "POST":  creerPersonnage(e, univers);     return;
             case "PUT":   modifierPersonnage(e, univers);  return;
+            case "DELETE": supprimerPersonnage(e, univers); return;
             case "GET":   repondreJson(e, 200, univers.listePersonnages); return;
             default:      repondreErreur(e, 405, "Methode non supportee");
         }
@@ -128,6 +129,24 @@ public class ServeurApi {
 
         sauvegarderBibliothequeDansFichier();
         repondreJson(e, 200, new ReponseId("ok", cible.id));
+    }
+
+    static void supprimerPersonnage(HttpExchange e, Univers univers) throws java.io.IOException {
+        Integer id = extraireIntQuery(e, "id");
+        if (id == null) {
+            repondreErreur(e, 400, "Parametre id manquant");
+            return;
+        }
+
+        Personnage cible = trouverPersonnage(univers, id);
+        if (cible == null) {
+            repondreErreur(e, 404, "Personnage introuvable");
+            return;
+        }
+
+        univers.listePersonnages.remove(cible);
+        sauvegarderBibliothequeDansFichier();
+        repondreJson(e, 200, new ReponseId("ok", id));
     }
 
     // ---------------------- /api/univers ----------------------
