@@ -43,7 +43,6 @@ public class ServeurApi {
         serveur.createContext("/api/lieux", ServeurApi::handleLieux);
         serveur.createContext("/api/evenements", ServeurApi::handleEvenements);
         serveur.createContext("/api/calendrier", ServeurApi::handleCalendrier);
-        // /api/liens : reporte, le modele Lien est un groupe de 3 listes (pas un lien binaire)
 
         serveur.setExecutor(null);
         serveur.start();
@@ -151,7 +150,7 @@ public class ServeurApi {
 
     // ---------------------- /api/univers ----------------------
     static void handleUnivers(HttpExchange e) throws java.io.IOException {
-        cors(e, "GET, POST, OPTIONS");
+        cors(e, "GET, POST, DELETE, OPTIONS");
         if (estPreflight(e)) return;
 
         Integer livreId = extraireIntQuery(e, "livreId");
@@ -167,9 +166,10 @@ public class ServeurApi {
         }
 
         switch (e.getRequestMethod()) {
-            case "POST": creerUnivers(e, livre); return;
-            case "GET":  repondreJson(e, 200, livre.universliste); return;
-            default:     repondreErreur(e, 405, "Methode non supportee");
+            case "POST":   creerUnivers(e, livre);    return;
+            case "DELETE": supprimerUnivers(e, livre); return;
+            case "GET":    repondreJson(e, 200, livre.universliste); return;
+            default:       repondreErreur(e, 405, "Methode non supportee");
         }
     }
 
@@ -181,6 +181,27 @@ public class ServeurApi {
         livre.universliste.add(nouveau);
         sauvegarderBibliothequeDansFichier();
         repondreJson(e, 200, new ReponseId("ok", nouveau.id));
+    }
+
+    static void supprimerUnivers(HttpExchange e, Livre livre) throws java.io.IOException {
+        Integer id = extraireIntQuery(e, "id");
+        if (id == null) {
+            repondreErreur(e, 400, "Parametre id manquant");
+            return;
+        }
+
+        Univers cible = null;
+        for (Univers u : livre.universliste) {
+            if (u.id == id) { cible = u; break; }
+        }
+        if (cible == null) {
+            repondreErreur(e, 404, "Univers introuvable");
+            return;
+        }
+
+        livre.universliste.remove(cible);
+        sauvegarderBibliothequeDansFichier();
+        repondreJson(e, 200, new ReponseId("ok", id));
     }
 
     // ---------------------- /api/livres ----------------------
@@ -259,8 +280,6 @@ public class ServeurApi {
             return;
         }
 
-        // Le modele Lieux utilise des listes pour nom et type (un lieu peut changer
-        // de nom/type au fil du temps). On ajoute ici une nouvelle entree si elle est fournie.
         if (entrant.nom != null && !entrant.nom.isBlank()) {
             cible.nom.add(entrant.nom);
         }
@@ -383,8 +402,6 @@ public class ServeurApi {
 
         Date nouvelle = new Date(entrant.annee, entrant.mois, entrant.jour);
 
-        // Le calendrier prend (maxi, mini) dans le constructeur.
-        // On l'initialise a la premiere utilisation.
         if (univers.calendrier == null) {
             univers.calendrier = new Calendrier(
                 new Date(9999, 12, 31),
@@ -397,7 +414,6 @@ public class ServeurApi {
         int apres = univers.calendrier.grille.size();
 
         if (apres == avant) {
-            // ajouterDate n'a rien ajoute (doublon, hors bornes, etc.)
             repondreErreur(e, 400, "Date invalide ou deja presente (ou hors bornes du calendrier)");
             return;
         }
